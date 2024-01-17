@@ -2,6 +2,7 @@ from multiprocessing import parent_process
 import os
 import random
 import math
+from re import A
 from turtle import width, window_height
 import pygame
 from os import listdir
@@ -15,9 +16,19 @@ PLAYER_VEL = 5
 
 window = pygame.display.set_mode((WIDTH, HEIGHT))
 
+def flip(sprites):
+    return [pygame.transform.flip(sprite, True, False) for sprite in sprites]
+
+
+def load_sprite_sheets(dir1, dir2, width, height, direction=False):
+    path = join("assets", dir1, dir2)
+    images = [f for f in listdir(path)] if isfile(join(path, f))
+
+
 class Player(pygame.sprite.Sprite):
     COLOR = (255, 0, 0)
-    
+    GRAVITY = 1
+
     def __init__(self, x, y, width, height):
         self.rect = pygame.Rect(x, y, width, height)
         self.x_vel = 0
@@ -25,6 +36,7 @@ class Player(pygame.sprite.Sprite):
         self.mask = None
         self.direction = "left"
         self.antimation_count = 0
+        self.fallcount = 0    
 
     def move(self, dx, dy):
         self.rect.x += dx
@@ -42,6 +54,14 @@ class Player(pygame.sprite.Sprite):
             self.direction = "right"
             self.antimation_count = 0
 
+    def loop(self, fps):
+        self.y_vel += min(1, (self.fallcount / fps) * self.GRAVITY)
+        self.move(self.x_vel, self.y_vel)
+
+        self.fallcount += 1
+
+    def draw(self, win):
+        pygame.draw.rect(win, self.COLOR, self.rect)
 
 
 def get_background(name):
@@ -56,16 +76,30 @@ def get_background(name):
     return tiles, image
 
 
-def draw(window, background, bg_image):
+def handle_move(player):
+    keys = pygame.key.get_pressed()
+
+    player.x_vel = 0
+    if keys[pygame.K_a]:
+        player.move_left(PLAYER_VEL)
+    if keys[pygame.K_d]:
+        player.move_right(PLAYER_VEL)
+
+
+def draw(window, background, bg_image, player):
     for tile in background:
         window.blit(bg_image, tile)
     
+    player.draw(window)
+
     pygame.display.update()
 
 
 def main(window):
     clock = pygame.time.Clock()
     background, bg_image = get_background("Brown.png")
+
+    player = Player(100, 100, 50, 50)
 
     run = True
     while run:
@@ -76,7 +110,9 @@ def main(window):
                 run = False
                 break
 
-        draw(window, background, bg_image)
+        player.loop(FPS)
+        handle_move(player)
+        draw(window, background, bg_image, player)
 
         
     pygame.quit()
