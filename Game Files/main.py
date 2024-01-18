@@ -1,3 +1,4 @@
+from lib2to3.pgen2 import grammar
 import os
 import random
 import math
@@ -19,7 +20,7 @@ def flip(sprites):
 
 
 def load_sprite_sheets(dir1, dir2, width, height, direction=False):
-    path = join("assets", dir1, dir2)
+    path = join("Game Files", "assets", dir1, dir2)
     images = [f for f in listdir(path) if isfile(join(path, f))]
 
     all_sprites = {}
@@ -44,7 +45,7 @@ def load_sprite_sheets(dir1, dir2, width, height, direction=False):
 
 
 def get_block(size):
-    path = join("assets", "Terrain", "Terrain.png")
+    path = join("Game Files", "assets", "Terrain", "Terrain.png")
     image = pygame.image.load(path).convert_alpha()
     surface = pygame.Surface((size, size),  pygame.SRCALPHA, 32)
     rect = pygame.Rect(96, 0, size, size)
@@ -92,11 +93,10 @@ class Player(pygame.sprite.Sprite):
 
     def jump(self):
         if self.jump_count == 0:
-            self.y_vel = -self.GRAVITY * 7
-            self.fall_count = 0
+            self.y_vel = -self.GRAVITY * 8
         elif self.jump_count >= 1:
+            self.y_vel = -self.GRAVITY * 5
             self.fall_count = 0
-            self.y_vel = -self.GRAVITY * 7
         self.animation_count = 0
         self.jump_count += 1
 
@@ -122,7 +122,7 @@ class Player(pygame.sprite.Sprite):
 
         if self.fall_count < 20:
             self.fall_count += 1
-        
+
         self.update_sprite()
 
     def landed(self):
@@ -162,7 +162,7 @@ class Player(pygame.sprite.Sprite):
 
 
 def get_background(name):
-    image = pygame.image.load(join("assets", "Backgrounds", name))
+    image = pygame.image.load(join("Game Files", "assets", "Backgrounds", name))
     _, _, width, height = image.get_rect()
     tiles = []
     for i in range(WIDTH // width + 1):
