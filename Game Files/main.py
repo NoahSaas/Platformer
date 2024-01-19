@@ -2,6 +2,7 @@ import os
 import random
 import math
 import pygame
+import time
 from os import listdir
 from os.path import isfile, join
 pygame.init()
@@ -102,7 +103,7 @@ class Player(pygame.sprite.Sprite):
             self.animation_count = 0
 
     def loop(self, fps):
-        if self.y_vel:
+        if self.y_vel < 20:
             self.y_vel += min(1, (self.fall_count / fps) * self.GRAVITY)
         self.move(self.x_vel, self.y_vel)
 
@@ -197,10 +198,10 @@ class Fire(Object):
         sprite_index = (self.animation_count //
                         self.ANIMATION_DELAY) % len(sprites)
         self.image = sprites[sprite_index]
-        self.scaled_image = pygame.transform.scale_by(self.image, (0.75, 1))
+        self.scaled_image = pygame.transform.scale_by(self.image, (0.8, 1))
         self.animation_count += 1
 
-        self.rect = self.image.get_rect(topleft=(self.rect.x, self.rect.y))
+        self.rect = self.scaled_image.get_rect(topleft=(self.rect.x, self.rect.y))
         self.mask = pygame.mask.from_surface(self.scaled_image)
 
 
@@ -279,7 +280,7 @@ def handle_move(player, objects):
     to_check = [collide_left, collide_right, *vertical_collide]
 
     for obj in to_check:
-        if obj and obj.name == "fire":
+        if obj and obj.name == "fire" and obj.animation_name == "on":
             player.make_hit()
 
 
@@ -288,10 +289,10 @@ def main(window):
     background, bg_image = get_background("Brown.png")
 
     block_size = 96
-
+    bool = True
     player = Player(100, 100, 50, 50)
     fire = Fire(100, HEIGHT - block_size - 64, 16, 32)
-    fire.on()
+    #fire.on()
     floor = [Block(i * block_size, HEIGHT - block_size, block_size) for i in range(-WIDTH // block_size, (WIDTH * 2) // block_size)]
     objects = [*floor, Block(block_size * 3, HEIGHT - block_size * 4, block_size), fire]
 
@@ -301,7 +302,7 @@ def main(window):
     run = True
     while run:
         clock.tick(FPS)
-
+        
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
