@@ -8,7 +8,7 @@ pygame.init()
 
 pygame.display.set_caption("Platformer")
 
-WIDTH, HEIGHT = 1000, 800
+WIDTH, HEIGHT = 1000, 600
 FPS = 60
 PLAYER_VEL = 5
 
@@ -102,7 +102,7 @@ class Player(pygame.sprite.Sprite):
             self.animation_count = 0
 
     def loop(self, fps):
-        if self.y_vel < 20:
+        if self.y_vel:
             self.y_vel += min(1, (self.fall_count / fps) * self.GRAVITY)
         self.move(self.x_vel, self.y_vel)
 
@@ -197,10 +197,12 @@ class Fire(Object):
         sprite_index = (self.animation_count //
                         self.ANIMATION_DELAY) % len(sprites)
         self.image = sprites[sprite_index]
+        self.scaled_image = pygame.transform.scale_by(self.image, (0.75, 1))
         self.animation_count += 1
 
         self.rect = self.image.get_rect(topleft=(self.rect.x, self.rect.y))
-        self.mask = pygame.mask.from_surface(self.image)
+        self.mask = pygame.mask.from_surface(self.scaled_image)
+
 
         if self.animation_count // self.ANIMATION_DELAY > len(sprites):
             self.animation_count = 0
@@ -290,10 +292,8 @@ def main(window):
     player = Player(100, 100, 50, 50)
     fire = Fire(100, HEIGHT - block_size - 64, 16, 32)
     fire.on()
-    floor = [Block(i * block_size, HEIGHT - block_size, block_size)
-             for i in range(-WIDTH // block_size, (WIDTH * 2) // block_size)]
-    objects = [*floor, Block(0, HEIGHT - block_size * 2, block_size),
-               Block(block_size * 3, HEIGHT - block_size * 4, block_size), fire]
+    floor = [Block(i * block_size, HEIGHT - block_size, block_size) for i in range(-WIDTH // block_size, (WIDTH * 2) // block_size)]
+    objects = [*floor, Block(block_size * 3, HEIGHT - block_size * 4, block_size), fire]
 
     offset_x = 0
     scroll_area_width = 200
