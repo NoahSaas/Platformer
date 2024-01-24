@@ -9,7 +9,7 @@ pygame.init()
 
 pygame.display.set_caption("Platformer")
 
-WIDTH, HEIGHT = 900, 500
+WIDTH, HEIGHT = 1200, 800
 FPS = 60
 PLAYER_VEL = 5
 
@@ -65,7 +65,6 @@ class Player(pygame.sprite.Sprite):
         self.rect = pygame.Rect(x, y, width, height)
         self.x_vel = 0
         self.y_vel = 0
-        self.mask = None
         self.direction = "left"
         self.animation_count = 0
         self.fall_count = 0
@@ -79,9 +78,9 @@ class Player(pygame.sprite.Sprite):
         if self.jump_count < 1:
             self.fall_count = 0
             self.y_vel = -self.GRAVITY * 8
-        elif self.jump_count >= 1 and self.jump_count < 4:
+        elif self.jump_count >= 1 and self.jump_count < 2:
             self.fall_count = 0
-            self.y_vel = -self.GRAVITY * 5
+            self.y_vel = -self.GRAVITY * 7
         self.animation_count = 0
         self.jump_count += 1
 
@@ -108,24 +107,22 @@ class Player(pygame.sprite.Sprite):
         if self.y_vel < 20:
             self.y_vel += min(1, (self.fall_count / fps) * self.GRAVITY)
         self.move(self.x_vel, self.y_vel)
-
         if self.hit:
             self.enable_heal = False
             self.hit_count += 1
-            self.health -= 0.5
-        
-        if self.hit_count > fps * 2:
+            if self.health > 0:
+                self.health -= 0.25
+        elif self.health <= 0:
+            print("GAME OVER")
+        if self.hit_count > fps * 1.7:
             self.hit = False
             self.enable_heal = True
             self.hit_count = 0
             self.temp_val = time.time()
-            
-
         if self.enable_heal and self.health < 100 and time.time() > (self.temp_val + 2):
-            self.health += 0.15
-            self.health = math.ceil(self.health)
+            self.health += 0.1
+            self.health = round(self.health, 1)
 
-        print(self.health)
         self.fall_count += 1
         self.update_sprite()
 
@@ -137,6 +134,13 @@ class Player(pygame.sprite.Sprite):
     def hit_head(self):
         self.count = 0
         self.y_vel *= -0.1
+
+    def display_hp(self, win, hp):
+        self.font = pygame.font.Font('freesansbold.ttf', 32)
+        self.text = self.font.render("Health: " + str(math.ceil(hp)), True, (255, 0, 0))
+        self.textRect = self.text.get_rect()
+        self.textRect.bottomleft = (0, HEIGHT)
+        win.blit(self.text, self.textRect)
 
     def update_sprite(self):
         sprite_sheet = "idle"
@@ -187,7 +191,6 @@ class Block(Object):
         super().__init__(x, y, size, size)
         block = get_block(size)
         self.image.blit(block, (0, 0))
-        self.mask = pygame.mask.from_surface(self.image)
 
 
 class Fire(Object):
@@ -197,7 +200,6 @@ class Fire(Object):
         super().__init__(x, y, width, height, "fire")
         self.fire = load_sprite_sheets("Traps", "Fire", width, height)
         self.image = self.fire["off"][0]
-        self.mask = pygame.mask.from_surface(self.image)
         self.animation_count = 0
         self.animation_name = "off"
 
@@ -216,7 +218,6 @@ class Fire(Object):
         self.animation_count += 1
 
         self.rect = self.scaled_image.get_rect(topleft=(self.rect.x, self.rect.y))
-        self.mask = pygame.mask.from_surface(self.scaled_image)
 
 
         if self.animation_count // self.ANIMATION_DELAY > len(sprites):
@@ -244,6 +245,7 @@ def draw(window, background, bg_image, player, objects, offset_x):
         obj.draw(window, offset_x)
 
     player.draw(window, offset_x)
+    player.display_hp(window, player.health)
 
     pygame.display.update()
 
