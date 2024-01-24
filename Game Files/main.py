@@ -9,7 +9,7 @@ pygame.init()
 
 pygame.display.set_caption("Platformer")
 
-WIDTH, HEIGHT = 1000, 600
+WIDTH, HEIGHT = 900, 500
 FPS = 60
 PLAYER_VEL = 5
 
@@ -72,6 +72,8 @@ class Player(pygame.sprite.Sprite):
         self.jump_count = 0
         self.hit = False
         self.hit_count = 0
+        self.health = 100
+        self.enable_heal = True
 
     def jump(self):
         if self.jump_count < 1:
@@ -108,11 +110,22 @@ class Player(pygame.sprite.Sprite):
         self.move(self.x_vel, self.y_vel)
 
         if self.hit:
+            self.enable_heal = False
             self.hit_count += 1
+            self.health -= 0.5
+        
         if self.hit_count > fps * 2:
             self.hit = False
+            self.enable_heal = True
             self.hit_count = 0
+            self.temp_val = time.time()
+            
 
+        if self.enable_heal and self.health < 100 and time.time() > (self.temp_val + 2):
+            self.health += 0.15
+            self.health = math.ceil(self.health)
+
+        print(self.health)
         self.fall_count += 1
         self.update_sprite()
 
@@ -123,7 +136,7 @@ class Player(pygame.sprite.Sprite):
 
     def hit_head(self):
         self.count = 0
-        self.y_vel *= -1
+        self.y_vel *= -0.1
 
     def update_sprite(self):
         sprite_sheet = "idle"
@@ -148,11 +161,12 @@ class Player(pygame.sprite.Sprite):
         self.update()
 
     def update(self):
-        self.rect = self.sprite.get_rect(topleft=(self.rect.x, self.rect.y))
-        self.mask = pygame.mask.from_surface(self.sprite)
+        if hasattr(self, 'sprite'):
+            self.rect = self.sprite.get_rect(topleft=(self.rect.x, self.rect.y))
 
     def draw(self, win, offset_x):
-        win.blit(self.sprite, (self.rect.x - offset_x, self.rect.y))
+        if hasattr(self, 'sprite'):
+            win.blit(self.sprite, (self.rect.x - offset_x, self.rect.y))
 
 
 class Object(pygame.sprite.Sprite):
@@ -236,8 +250,12 @@ def draw(window, background, bg_image, player, objects, offset_x):
 
 def handle_vertical_collision(player, objects, dy):
     collided_objects = []
+    player_rect = player.rect.copy()
+
+    player_rect.y += dy
+
     for obj in objects:
-        if pygame.sprite.collide_mask(player, obj):
+        if player_rect.colliderect(obj.rect):
             if dy > 0:
                 player.rect.bottom = obj.rect.top
                 player.landed()
@@ -254,8 +272,9 @@ def collide(player, objects, dx):
     player.move(dx, 0)
     player.update()
     collided_object = None
+
     for obj in objects:
-        if pygame.sprite.collide_mask(player, obj):
+        if player.rect.colliderect(obj.rect):
             collided_object = obj
             break
 
@@ -277,7 +296,7 @@ def handle_move(player, objects):
         player.move_right(PLAYER_VEL)
 
     vertical_collide = handle_vertical_collision(player, objects, player.y_vel)
-    to_check = [collide_left, collide_right, *vertical_collide]
+    to_check = [*vertical_collide]
 
     for obj in to_check:
         if obj and obj.name == "fire" and obj.animation_name == "on":
@@ -292,7 +311,7 @@ def main(window):
     bool = True
     player = Player(100, 100, 50, 50)
     fire = Fire(100, HEIGHT - block_size - 64, 16, 32)
-    #fire.on()
+    fire.on()
     floor = [Block(i * block_size, HEIGHT - block_size, block_size) for i in range(-WIDTH // block_size, (WIDTH * 2) // block_size)]
     objects = [*floor, Block(block_size * 3, HEIGHT - block_size * 4, block_size), fire]
 
