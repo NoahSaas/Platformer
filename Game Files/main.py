@@ -65,7 +65,7 @@ class Player(pygame.sprite.Sprite):
         self.rect = pygame.Rect(x, y, width, height)
         self.x_vel = 0
         self.y_vel = 0
-        self.direction = "left"
+        self.direction = "right"
         self.animation_count = 0
         self.fall_count = 0
         self.jump_count = 0
@@ -90,6 +90,7 @@ class Player(pygame.sprite.Sprite):
 
     def make_hit(self):
         self.hit = True
+        self.hit_count = 0
 
     def move_left(self, vel):
         self.x_vel = -vel
@@ -112,14 +113,12 @@ class Player(pygame.sprite.Sprite):
             self.hit_count += 1
             if self.health > 0:
                 self.health -= 0.25
-        elif self.health <= 0:
-            print("GAME OVER")
         if self.hit_count > fps * 1.7:
             self.hit = False
             self.enable_heal = True
             self.hit_count = 0
             self.temp_val = time.time()
-        if self.enable_heal and self.health < 100 and time.time() > (self.temp_val + 2):
+        if self.enable_heal and self.health < 100 and time.time() > (self.temp_val + 3):
             self.health += 0.1
             self.health = round(self.health, 1)
 
@@ -132,15 +131,28 @@ class Player(pygame.sprite.Sprite):
         self.jump_count = 0
 
     def hit_head(self):
-        self.count = 0
         self.y_vel *= -0.1
 
-    def display_hp(self, win, hp):
-        self.font = pygame.font.Font('freesansbold.ttf', 32)
-        self.text = self.font.render("Health: " + str(math.ceil(hp)), True, (255, 0, 0))
-        self.textRect = self.text.get_rect()
-        self.textRect.bottomleft = (0, HEIGHT)
-        win.blit(self.text, self.textRect)
+    def display_hp(self, win):
+        heart_size = 32
+        heart_padding = heart_size / 6
+
+        path1 = join("Game Files", "assets", "Misc", "heart.png")
+        path2 = join("Game Files", "assets", "Misc", "empty_heart.png")
+        heart_image = pygame.image.load(path1).convert_alpha()
+        heart_image = pygame.transform.scale(heart_image, (heart_size, heart_size))
+        empty_heart_image = pygame.image.load(path2).convert_alpha()
+        empty_heart_image = pygame.transform.scale(empty_heart_image, (heart_size, heart_size))
+
+
+        for i in range(10):
+            heart_x = i * (heart_size + heart_padding)
+            heart_rect = pygame.Rect(heart_x + 10, 10, heart_size, heart_size)
+
+            if i * 10 < self.health:
+                win.blit(heart_image, heart_rect.topleft)
+            else:
+                win.blit(empty_heart_image, heart_rect.topleft)
 
     def update_sprite(self):
         sprite_sheet = "idle"
@@ -211,8 +223,7 @@ class Fire(Object):
 
     def loop(self):
         sprites = self.fire[self.animation_name]
-        sprite_index = (self.animation_count //
-                        self.ANIMATION_DELAY) % len(sprites)
+        sprite_index = (self.animation_count // self.ANIMATION_DELAY) % len(sprites)
         self.image = sprites[sprite_index]
         self.scaled_image = pygame.transform.scale_by(self.image, (0.8, 1))
         self.animation_count += 1
@@ -245,7 +256,7 @@ def draw(window, background, bg_image, player, objects, offset_x):
         obj.draw(window, offset_x)
 
     player.draw(window, offset_x)
-    player.display_hp(window, player.health)
+    player.display_hp(window)
 
     pygame.display.update()
 
@@ -305,20 +316,33 @@ def handle_move(player, objects):
             player.make_hit()
 
 
+def load_scene(level_id):
+    if level_id == 1:
+        background, bg_image = get_background("Brown.png")
+        block_size = 96
+        player = Player(100, 100, 50, 50)
+        floor = [Block(i * block_size, HEIGHT - block_size, block_size) for i in range(-WIDTH // block_size, (WIDTH * 2) // block_size)]
+
+        objects = [*floor, Block(block_size * 3, HEIGHT - block_size * 4, block_size)]
+        traps = [Fire(100, HEIGHT - block_size - 64, 16, 32)]
+
+        for trap in traps:
+            objects.append(trap)
+            if type(trap) == Fire:
+                trap.on()
+
+        offset_x = 0
+        return player, objects, offset_x, background, bg_image, traps
+
+
+def unload_scene(objects):
+    objects.clear()
+
+
 def main(window):
     clock = pygame.time.Clock()
-    background, bg_image = get_background("Brown.png")
-
-    block_size = 96
-    bool = True
-    player = Player(100, 100, 50, 50)
-    fire = Fire(100, HEIGHT - block_size - 64, 16, 32)
-    fire.on()
-    floor = [Block(i * block_size, HEIGHT - block_size, block_size) for i in range(-WIDTH // block_size, (WIDTH * 2) // block_size)]
-    objects = [*floor, Block(block_size * 3, HEIGHT - block_size * 4, block_size), fire]
-
-    offset_x = 0
-    scroll_area_width = 200
+    scroll_area_width = 200    
+    player, objects, offset_x, background, bg_image, traps = load_scene(1)
 
     run = True
     while run:
@@ -334,9 +358,15 @@ def main(window):
                     player.jump()
 
         player.loop(FPS)
-        fire.loop()
+        traps[0].loop()
+
         handle_move(player, objects)
         draw(window, background, bg_image, player, objects, offset_x)
+
+        if player.health <= 0:
+            unload_scene(objects)
+            player, objects, offset_x, background, bg_image = load_scene(1)
+
 
         if ((player.rect.right - offset_x >= WIDTH - scroll_area_width) and player.x_vel > 0) or (
                 (player.rect.left - offset_x <= scroll_area_width) and player.x_vel < 0):
