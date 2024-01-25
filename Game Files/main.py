@@ -9,7 +9,7 @@ pygame.init()
 
 pygame.display.set_caption("Platformer")
 
-WIDTH, HEIGHT = 1200, 800
+WIDTH, HEIGHT = 1200, 500
 FPS = 60
 PLAYER_VEL = 5
 
@@ -357,6 +357,7 @@ def main(window):
                 if event.key == pygame.K_SPACE:
                     player.jump()
 
+
         player.loop(FPS)
         traps[0].loop()
 
@@ -365,9 +366,9 @@ def main(window):
 
         if player.health <= 0:
             unload_scene(objects)
-            player, objects, offset_x, background, bg_image = load_scene(1)
+            player, objects, offset_x, background, bg_image, traps = load_scene(1)
 
-
+        
         if ((player.rect.right - offset_x >= WIDTH - scroll_area_width) and player.x_vel > 0) or (
                 (player.rect.left - offset_x <= scroll_area_width) and player.x_vel < 0):
             offset_x += player.x_vel
