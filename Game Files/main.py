@@ -9,9 +9,9 @@ pygame.init()
 
 pygame.display.set_caption("Platformer")
 
-WIDTH, HEIGHT = 1200, 500
+WIDTH, HEIGHT = 1200, 800
 FPS = 60
-PLAYER_VEL = 5
+PLAYER_VEL = 4
 
 window = pygame.display.set_mode((WIDTH, HEIGHT))
 
@@ -75,12 +75,13 @@ class Player(pygame.sprite.Sprite):
         self.enable_heal = True
 
     def jump(self):
-        if self.jump_count < 1:
-            self.fall_count = 0
-            self.y_vel = -self.GRAVITY * 8
-        elif self.jump_count >= 1 and self.jump_count < 2:
+        if self.jump_count == 0 and self.fall_count <= 9:
             self.fall_count = 0
             self.y_vel = -self.GRAVITY * 7
+        elif self.jump_count < 2:
+            self.fall_count = 0
+            self.y_vel = -self.GRAVITY * 6
+            self.jump_count += 1
         self.animation_count = 0
         self.jump_count += 1
 
@@ -105,7 +106,7 @@ class Player(pygame.sprite.Sprite):
             self.animation_count = 0
 
     def loop(self, fps):
-        if self.y_vel < 20:
+        if self.y_vel < 10:
             self.y_vel += min(1, (self.fall_count / fps) * self.GRAVITY)
         self.move(self.x_vel, self.y_vel)
         if self.hit:
@@ -161,8 +162,6 @@ class Player(pygame.sprite.Sprite):
         elif self.y_vel < 0:
             if self.jump_count == 1:
                 sprite_sheet = "jump"
-            elif self.jump_count == 2:
-                sprite_sheet = "double_jump"
         elif self.y_vel > self.GRAVITY * 2:
             sprite_sheet = "fall"
         elif self.x_vel != 0:
@@ -282,7 +281,7 @@ def handle_vertical_collision(player, objects, dy):
 
 
 def collide(player, objects, dx):
-    player.move(dx, 0)
+    player.move(dx , 0)
     player.update()
     collided_object = None
 
@@ -291,7 +290,7 @@ def collide(player, objects, dx):
             collided_object = obj
             break
 
-    player.move(-dx, 0)
+    player.move(-dx , 0)
     player.update()
     return collided_object
 
@@ -300,8 +299,8 @@ def handle_move(player, objects):
     keys = pygame.key.get_pressed()
 
     player.x_vel = 0
-    collide_left = collide(player, objects, -PLAYER_VEL * 2)
-    collide_right = collide(player, objects, PLAYER_VEL * 2)
+    collide_left = collide(player, objects, -PLAYER_VEL)
+    collide_right = collide(player, objects, PLAYER_VEL)
 
     if keys[pygame.K_a] and not collide_left:
         player.move_left(PLAYER_VEL)
@@ -320,11 +319,12 @@ def load_scene(level_id):
     if level_id == 1:
         background, bg_image = get_background("Brown.png")
         block_size = 96
-        player = Player(100, 100, 50, 50)
-        floor = [Block(i * block_size, HEIGHT - block_size, block_size) for i in range(-WIDTH // block_size, (WIDTH * 2) // block_size)]
+        player = Player(100, HEIGHT - block_size - 200, 50, 50)
+        floor = [Block(i * block_size, HEIGHT - block_size, block_size) for i in range(-3, (WIDTH * 3) // block_size)]
+        del floor[8], floor[8], floor[8]
 
-        objects = [*floor, Block(block_size * 3, HEIGHT - block_size * 4, block_size)]
-        traps = [Fire(100, HEIGHT - block_size - 64, 16, 32)]
+        objects = [*floor]
+        traps = []
 
         for trap in traps:
             objects.append(trap)
@@ -359,12 +359,13 @@ def main(window):
 
 
         player.loop(FPS)
-        traps[0].loop()
+        for trap in traps:
+            trap.loop()
 
         handle_move(player, objects)
         draw(window, background, bg_image, player, objects, offset_x)
 
-        if player.health <= 0:
+        if player.health <= 0 or player.rect.y >= 1000:
             unload_scene(objects)
             player, objects, offset_x, background, bg_image, traps = load_scene(1)
 
