@@ -1,3 +1,4 @@
+from email.errors import ObsoleteHeaderDefect
 import os
 import random
 import math
@@ -9,7 +10,7 @@ pygame.init()
 
 pygame.display.set_caption("Platformer")
 
-WIDTH, HEIGHT = 1200, 800
+WIDTH, HEIGHT = 800, 500
 FPS = 60
 PLAYER_VEL = 4
 
@@ -45,11 +46,17 @@ def load_sprite_sheets(dir1, dir2, width, height, direction=False):
     return all_sprites
 
 
-def get_block(size):
+def get_block(size, type):
     path = join("Game Files", "assets", "Terrain", "Terrain.png")
     image = pygame.image.load(path).convert_alpha()
     surface = pygame.Surface((size, size), pygame.SRCALPHA, 32)
-    rect = pygame.Rect(96, 0, size, size)
+    if type == "block":
+        clip_at_x = 96
+        clip_at_y = 0
+    elif type == "small_block":
+        clip_at_x = 192
+        clip_at_y = 80
+    rect = pygame.Rect(clip_at_x, clip_at_y, size, size)
     surface.blit(image, (0, 0), rect)
     return pygame.transform.scale2x(surface)
 
@@ -179,9 +186,9 @@ class Player(pygame.sprite.Sprite):
         if hasattr(self, 'sprite'):
             self.rect = self.sprite.get_rect(topleft=(self.rect.x, self.rect.y))
 
-    def draw(self, win, offset_x):
+    def draw(self, win, offset_x, offset_y):
         if hasattr(self, 'sprite'):
-            win.blit(self.sprite, (self.rect.x - offset_x, self.rect.y))
+            win.blit(self.sprite, (self.rect.x - offset_x, self.rect.y - offset_y))
 
 
 class Object(pygame.sprite.Sprite):
@@ -193,14 +200,14 @@ class Object(pygame.sprite.Sprite):
         self.height = height
         self.name = name
 
-    def draw(self, win, offset_x):
-        win.blit(self.image, (self.rect.x - offset_x, self.rect.y))
+    def draw(self, win, offset_x, offset_y):
+        win.blit(self.image, (self.rect.x - offset_x, self.rect.y - offset_y))
 
 
 class Block(Object):
-    def __init__(self, x, y, size):
+    def __init__(self, x, y, size, type):
         super().__init__(x, y, size, size)
-        block = get_block(size)
+        block = get_block(size, type)
         self.image.blit(block, (0, 0))
 
 
@@ -247,14 +254,14 @@ def get_background(name):
     return tiles, image
 
 
-def draw(window, background, bg_image, player, objects, offset_x):
+def draw(window, background, bg_image, player, objects, offset_x, offset_y):
     for tile in background:
         window.blit(bg_image, tile)
 
     for obj in objects:
-        obj.draw(window, offset_x)
+        obj.draw(window, offset_x, offset_y)
 
-    player.draw(window, offset_x)
+    player.draw(window, offset_x, offset_y)
     player.display_hp(window)
 
     pygame.display.update()
@@ -319,11 +326,12 @@ def load_scene(level_id):
     if level_id == 1:
         background, bg_image = get_background("Brown.png")
         block_size = 96
+        small_block = 32
         player = Player(100, HEIGHT - block_size - 200, 50, 50)
-        floor = [Block(i * block_size, HEIGHT - block_size, block_size) for i in range(-3, (WIDTH * 3) // block_size)]
-        del floor[8], floor[8], floor[8]
-
-        objects = [*floor]
+        floor = [Block(i * block_size, HEIGHT - block_size, block_size, "block") for i in range(-3, (WIDTH * 3) // block_size)]
+        del floor[6], floor[6], floor[6], floor[8], floor[8]
+        obstacles = [Block(block_size * 10, HEIGHT - block_size * 2, block_size, "block"), Block(block_size * 11, HEIGHT - block_size * 4, block_size, "block")]
+        objects = [*floor, *obstacles]
         traps = []
 
         for trap in traps:
@@ -332,7 +340,8 @@ def load_scene(level_id):
                 trap.on()
 
         offset_x = 0
-        return player, objects, offset_x, background, bg_image, traps
+        offset_y = 0
+        return player, objects, offset_x, offset_y, background, bg_image, traps
 
 
 def unload_scene(objects):
@@ -341,8 +350,8 @@ def unload_scene(objects):
 
 def main(window):
     clock = pygame.time.Clock()
-    scroll_area_width = 200    
-    player, objects, offset_x, background, bg_image, traps = load_scene(1)
+    scroll_area_width = WIDTH // 3
+    player, objects, offset_x, offset_y, background, bg_image, traps = load_scene(1)
 
     run = True
     while run:
@@ -363,16 +372,17 @@ def main(window):
             trap.loop()
 
         handle_move(player, objects)
-        draw(window, background, bg_image, player, objects, offset_x)
+        draw(window, background, bg_image, player, objects, offset_x, offset_y)
 
-        if player.health <= 0 or player.rect.y >= 1000:
+        if player.health <= 0 or player.rect.y >= 750:
             unload_scene(objects)
-            player, objects, offset_x, background, bg_image, traps = load_scene(1)
+            player, objects, offset_x, offset_y, background, bg_image, traps = load_scene(1)
 
-        
-        if ((player.rect.right - offset_x >= WIDTH - scroll_area_width) and player.x_vel > 0) or (
-                (player.rect.left - offset_x <= scroll_area_width) and player.x_vel < 0):
+
+        if ((player.rect.right - offset_x >= WIDTH - scroll_area_width) and player.x_vel > 0) or ((player.rect.left - offset_x <= scroll_area_width) and player.x_vel < 0):
             offset_x += player.x_vel
+
+
 
     pygame.quit()
     quit()
