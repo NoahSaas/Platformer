@@ -64,7 +64,7 @@ def get_block(size, type):
 class Player(pygame.sprite.Sprite):
     COLOR = (255, 0, 0)
     GRAVITY = 1
-    SPRITES = load_sprite_sheets("Sprites", "NinjaFrog", 32, 32, True)
+    SPRITES = load_sprite_sheets("Sprites", "VirtualGuy", 32, 32, True)
     ANIMATION_DELAY = 3
 
     def __init__(self, x, y, width, height):
@@ -85,7 +85,7 @@ class Player(pygame.sprite.Sprite):
         if self.jump_count == 0 and self.fall_count <= 9:
             self.fall_count = 0
             self.y_vel = -self.GRAVITY * 7
-        elif self.jump_count < 2:
+        elif self.jump_count < 4:
             self.fall_count = 0
             self.y_vel = -self.GRAVITY * 6
             self.jump_count += 1
@@ -332,7 +332,7 @@ def load_scene(level_id):
         del floor[6], floor[6], floor[6], floor[8], floor[8]
         obstacles = [Block(block_size * 10, HEIGHT - block_size * 2, block_size, "block"), Block(block_size * 11, HEIGHT - block_size * 4, block_size, "block")]
         objects = [*floor, *obstacles]
-        traps = []
+        traps = [Fire(block_size * 7.25, HEIGHT - block_size - 64, 16, 32)]
 
         for trap in traps:
             objects.append(trap)
@@ -363,7 +363,7 @@ def main(window):
                 break
 
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
+                if event.key == pygame.K_SPACE or event.key == pygame.K_w:
                     player.jump()
 
 
