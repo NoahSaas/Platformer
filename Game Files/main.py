@@ -1,3 +1,4 @@
+from inspect import getblock
 import os
 import random
 import math
@@ -11,7 +12,7 @@ pygame.display.set_caption("Platformer")
 
 WIDTH, HEIGHT = 800, 500
 FPS = 60
-PLAYER_VEL = 4
+PLAYER_VEL = 8
 
 window = pygame.display.set_mode((WIDTH, HEIGHT))
 
@@ -45,11 +46,11 @@ def load_sprite_sheets(dir1, dir2, width, height, direction=False):
     return all_sprites
 
 
-def get_block(size):
+def get_block(size, cut_x, cut_y):
     path = join("Game Files", "assets", "Terrain", "Terrain.png")
     image = pygame.image.load(path).convert_alpha()
     surface = pygame.Surface((size, size), pygame.SRCALPHA, 32)
-    rect = pygame.Rect(96, 0, size, size)
+    rect = pygame.Rect(cut_x, cut_y, size, size)
     surface.blit(image, (0, 0), rect)
     return pygame.transform.scale2x(surface)
 
@@ -198,9 +199,14 @@ class Object(pygame.sprite.Sprite):
 
 
 class Block(Object):
-    def __init__(self, x, y, size):
+    def __init__(self, x, y, size, type):
         super().__init__(x, y, size, size)
-        block = get_block(size)
+        if type == "normal":
+            block = get_block(size, 96, 0)
+        elif type == "small":
+            block = get_block(size // 6, 192, 80)
+            self.rect.width = size // 6
+            self.rect.height = size // 6 
         self.image.blit(block, (0, 0))
 
 
@@ -319,12 +325,22 @@ def load_scene(level_id):
     if level_id == 1:
         background, bg_image = get_background("Brown.png")
         block_size = 96
+        fire_trap_size = 32
         player = Player(100, HEIGHT - block_size - 200, 50, 50)
-        floor = [Block(i * block_size, HEIGHT - block_size, block_size) for i in range(-3, (WIDTH * 3) // block_size)]
-        del floor[8], floor[8], floor[8]
 
-        objects = [*floor]
-        traps = []
+        floor = [Block(i * block_size, HEIGHT - block_size, block_size, "normal") for i in range(-3, (WIDTH * 3) // block_size)]
+        fire_roof = [Block(block_size * 5 + i * 32, HEIGHT - block_size * 3 + 64, block_size, "small") for i in range (9, 36)]
+        fire_roof_pillars1 = [Block(768, i * 32 - 12, block_size, "small") for i in range(0, 9)]
+        fire_roof_pillars2 = [Block(768 + block_size * 9 - 32, i * 32 - 12, block_size, "small") for i in range(0, 9)]
+        fire_pit1 = [Fire(block_size * 6 + fire_trap_size * i , HEIGHT - block_size, 16, 32) for i in range(9, 18)]
+        fire_pit2 = [Fire(block_size * 10 + fire_trap_size * i , HEIGHT - block_size, 16, 32) for i in range(9, 18)]
+        fire_pit_floor1 = [Block(block_size * 6 + fire_trap_size * i, HEIGHT - block_size + 64, block_size, "small") for i in range(9, 18)]
+        fire_pit_floor2 = [Block(block_size * 10 + fire_trap_size * i, HEIGHT - block_size + 64, block_size, "small") for i in range(9, 18)]
+        
+        del floor[8], floor[8], floor[8], floor[9], floor[9], floor[9], floor[10], floor[10], floor[10]
+
+        objects = [*floor, *fire_roof, *fire_roof_pillars1, *fire_roof_pillars2, *fire_pit_floor1, *fire_pit_floor2]
+        traps = [*fire_pit1, *fire_pit2]
 
         for trap in traps:
             objects.append(trap)
@@ -354,7 +370,7 @@ def main(window):
                 break
 
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
+                if event.key == pygame.K_SPACE or event.key == pygame.K_w:
                     player.jump()
 
 
