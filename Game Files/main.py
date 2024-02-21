@@ -12,7 +12,7 @@ pygame.display.set_caption("Platformer")
 
 WIDTH, HEIGHT = 800, 500
 FPS = 60
-PLAYER_VEL = 8
+PLAYER_VEL = 4
 
 window = pygame.display.set_mode((WIDTH, HEIGHT))
 
@@ -156,6 +156,14 @@ class Player(pygame.sprite.Sprite):
             else:
                 win.blit(empty_heart_image, heart_rect.topleft)
 
+    def collect_coin(self, coin):
+        if coin in items:
+            items.remove(coin)  # Remove the coin from the items list
+
+        if coin in objects:
+            objects.remove(coin)
+        
+
     def update_sprite(self):
         sprite_sheet = "idle"
         if self.hit:
@@ -210,6 +218,28 @@ class Block(Object):
         self.image.blit(block, (0, 0))
 
 
+class Coin(Object):
+    ANIMATION_DELAY = 4
+
+    def __init__(self, x, y, size):
+        super().__init__(x, y, size, size, "coin")
+        self.coin = load_sprite_sheets("Items", "Coin", size, size)
+        self.animation_count = 0
+
+
+    def loop(self):
+        sprites = self.coin["coins"]
+        sprite_index = (self.animation_count // self.ANIMATION_DELAY) % len(sprites)
+        self.image = sprites[sprite_index]
+        self.scaled_image = pygame.transform.scale_by(self.image, (1, 1))
+        self.animation_count += 1
+        self.rect = self.scaled_image.get_rect(topleft=(self.rect.x, self.rect.y))
+
+        if self.animation_count // self.ANIMATION_DELAY > len(sprites):
+            self.animation_count = 0
+        
+
+
 class Fire(Object):
     ANIMATION_DELAY = 3
 
@@ -219,6 +249,7 @@ class Fire(Object):
         self.image = self.fire["off"][0]
         self.animation_count = 0
         self.animation_name = "off"
+        self.temp_val = time.time()
 
     def on(self):
         self.animation_name = "on"
@@ -227,14 +258,20 @@ class Fire(Object):
         self.animation_name = "off"
 
     def loop(self):
+        if time.time() > (self.temp_val + 2):
+            self.temp_val = time.time()
+            if self.animation_name == "off":
+                self.on()
+            else:
+                self.off()
+
+        
         sprites = self.fire[self.animation_name]
         sprite_index = (self.animation_count // self.ANIMATION_DELAY) % len(sprites)
         self.image = sprites[sprite_index]
         self.scaled_image = pygame.transform.scale_by(self.image, (0.8, 1))
         self.animation_count += 1
-
         self.rect = self.scaled_image.get_rect(topleft=(self.rect.x, self.rect.y))
-
 
         if self.animation_count // self.ANIMATION_DELAY > len(sprites):
             self.animation_count = 0
@@ -253,12 +290,15 @@ def get_background(name):
     return tiles, image
 
 
-def draw(window, background, bg_image, player, objects, offset_x):
+def draw(window, background, bg_image, player, objects, offset_x, items):
     for tile in background:
         window.blit(bg_image, tile)
 
     for obj in objects:
         obj.draw(window, offset_x)
+
+    for item in items:
+        item.draw(window, offset_x)
 
     player.draw(window, offset_x)
     player.display_hp(window)
@@ -310,8 +350,12 @@ def handle_move(player, objects):
 
     if keys[pygame.K_a] and not collide_left:
         player.move_left(PLAYER_VEL)
+    elif keys[pygame.K_a] and collide_left.name == "coin":
+        player.collect_coin(collide_left)
     if keys[pygame.K_d] and not collide_right:
         player.move_right(PLAYER_VEL)
+    elif keys[pygame.K_d] and collide_right.name == "coin":
+        player.collect_coin(collide_right)
 
     vertical_collide = handle_vertical_collision(player, objects, player.y_vel)
     to_check = [*vertical_collide]
@@ -319,6 +363,8 @@ def handle_move(player, objects):
     for obj in to_check:
         if obj and obj.name == "fire" and obj.animation_name == "on":
             player.make_hit()
+        elif obj and obj.name == "coin":
+            player.collect_coin(obj)
 
 
 def load_scene(level_id):
@@ -341,14 +387,18 @@ def load_scene(level_id):
 
         objects = [*floor, *fire_roof, *fire_roof_pillars1, *fire_roof_pillars2, *fire_pit_floor1, *fire_pit_floor2]
         traps = [*fire_pit1, *fire_pit2]
+        items = [Coin(0, HEIGHT - 100, 16)]
 
         for trap in traps:
             objects.append(trap)
             if type(trap) == Fire:
                 trap.on()
 
+        for item in items:
+            objects.append(item)
+
         offset_x = 0
-        return player, objects, offset_x, background, bg_image, traps
+        return player, objects, offset_x, background, bg_image, traps, items
 
 
 def unload_scene(objects):
@@ -358,7 +408,7 @@ def unload_scene(objects):
 def main(window):
     clock = pygame.time.Clock()
     scroll_area_width = 200    
-    player, objects, offset_x, background, bg_image, traps = load_scene(1)
+    player, objects, offset_x, background, bg_image, traps, items = load_scene(1)
 
     run = True
     while run:
@@ -378,8 +428,11 @@ def main(window):
         for trap in traps:
             trap.loop()
 
+        for item in items:
+            item.loop()
+
         handle_move(player, objects)
-        draw(window, background, bg_image, player, objects, offset_x)
+        draw(window, background, bg_image, player, objects, offset_x, items)
 
         if player.health <= 0 or player.rect.y >= 1000:
             unload_scene(objects)
