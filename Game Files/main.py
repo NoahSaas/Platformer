@@ -10,6 +10,7 @@ pygame.init()
 
 pygame.display.set_caption("Platformer")
 
+# Defining global variables
 WIDTH, HEIGHT = 800, 500
 FPS = 60
 PLAYER_VEL = 4
@@ -18,10 +19,15 @@ victory = False
 window = pygame.display.set_mode((WIDTH, HEIGHT))
 
 
+# Flips the direction of the sprite
 def flip(sprites):
     return [pygame.transform.flip(sprite, True, False) for sprite in sprites]
 
 
+# Loads and cut the sprite sheet in order to get the animaton in the proper order
+    # dir1/dir2 - directories leading to the texture png
+    # width/height - dimensions for the spritesheet
+    # direction - the direction that the sprite is supposed to face
 def load_sprite_sheets(dir1, dir2, width, height, direction=False):
     path = join("Game Files", "assets", dir1, dir2)
     images = [f for f in listdir(path) if isfile(join(path, f))]
@@ -47,6 +53,9 @@ def load_sprite_sheets(dir1, dir2, width, height, direction=False):
     return all_sprites
 
 
+# Selects a part of the terrain image depending on the block and returns it
+    # size - the width/height of the block thats being loaded
+    # cut_x/cut_y - the position of the texture png where the block is being cut
 def get_block(size, cut_x, cut_y):
     path = join("Game Files", "assets", "Terrain", "Terrain.png")
     image = pygame.image.load(path).convert_alpha()
@@ -56,6 +65,7 @@ def get_block(size, cut_x, cut_y):
     return pygame.transform.scale2x(surface)
 
 
+# Player class that stores all the related stats and variables
 class Player(pygame.sprite.Sprite):
     COLOR = (255, 0, 0)
     GRAVITY = 1
@@ -77,6 +87,7 @@ class Player(pygame.sprite.Sprite):
         self.coins = 0
         self.enable_heal = True
 
+    # Function that launches the player up        
     def jump(self):
         if self.jump_count == 0 and self.fall_count <= 9:
             self.fall_count = 0
@@ -88,26 +99,31 @@ class Player(pygame.sprite.Sprite):
         self.animation_count = 0
         self.jump_count += 1
 
+    # Moves the player left or right
     def move(self, dx, dy):
         self.rect.x += dx
         self.rect.y += dy
 
+    # Event that signals the player being hit
     def make_hit(self):
         self.hit = True
         self.hit_count = 0
 
+    # Function that displaces the player to the left and handles the animation correction
     def move_left(self, vel):
         self.x_vel = -vel
         if self.direction != "left":
             self.direction = "left"
             self.animation_count = 0
 
+    # Function that displaces the player to the right and handles the animation correction
     def move_right(self, vel):
         self.x_vel = vel
         if self.direction != "right":
             self.direction = "right"
             self.animation_count = 0
 
+    # Main loop for the player logic
     def loop(self, fps):
         if self.y_vel < 10:
             self.y_vel += min(1, (self.fall_count / fps) * self.GRAVITY)
@@ -129,14 +145,17 @@ class Player(pygame.sprite.Sprite):
         self.fall_count += 1
         self.update_sprite()
 
+    # Event that signal that the player has landed
     def landed(self):
         self.fall_count = 0
         self.y_vel = 0
         self.jump_count = 0
 
+    # Event that signal that the player hit their head
     def hit_head(self):
         self.y_vel *= -0.1
 
+    # Function to display your health points in the form of hearts
     def display_hp(self, win):
         heart_size = 32
         heart_padding = heart_size // 6
@@ -158,6 +177,7 @@ class Player(pygame.sprite.Sprite):
             else:
                 win.blit(empty_heart_image, heart_rect.topleft)
 
+    # Same but with coins
     def display_coins(self, win):
         coin_size = 32
 
@@ -179,11 +199,12 @@ class Player(pygame.sprite.Sprite):
         win.blit(text_surface, text_rect)
         win.blit(coin_image, coin_rect.topleft)
 
-
+    # Collects coins and edits stats
     def collect_coin(self, coin, objects):
         objects.remove(coin)
         self.coins += 1
 
+    # Depending on what the character is doing it updates to the correct animation
     def update_sprite(self):
         sprite_sheet = "idle"
         if self.hit:
@@ -203,15 +224,18 @@ class Player(pygame.sprite.Sprite):
         self.animation_count += 1
         self.update()
 
+    # Aligns the hitbox and the sprite
     def update(self):
         if hasattr(self, 'sprite'):
             self.rect = self.sprite.get_rect(topleft=(self.rect.x, self.rect.y))
 
+    # Draws the sprite
     def draw(self, win, offset_x):
         if hasattr(self, 'sprite'):
             win.blit(self.sprite, (self.rect.x - offset_x, self.rect.y))
 
 
+# Parent class for future objects and classes
 class Object(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height, name=None):
         super().__init__()
@@ -221,13 +245,17 @@ class Object(pygame.sprite.Sprite):
         self.height = height
         self.name = name
 
+    # Draw the object
     def draw(self, win, offset_x):
         win.blit(self.image, (self.rect.x - offset_x, self.rect.y))
 
 
+# Block class
 class Block(Object):
     def __init__(self, x, y, size, type):
         super().__init__(x, y, size, size)
+        
+        # Checks what block should be placed and selects the texture accordingly
         if type == "normal":
             block = get_block(size, 96, 0)
         elif type == "small":
@@ -237,6 +265,7 @@ class Block(Object):
         self.image.blit(block, (0, 0))
 
 
+# Coin class
 class Coin(Object):
     ANIMATION_DELAY = 4
 
@@ -246,6 +275,7 @@ class Coin(Object):
         self.animation_count = 0
 
 
+    # Logic loop that handles the animation of the coin
     def loop(self):
         sprites = self.coin["gold_coin"]
         sprite_index = (self.animation_count // self.ANIMATION_DELAY) % len(sprites)
@@ -258,6 +288,7 @@ class Coin(Object):
             self.animation_count = 0
 
 
+#Finishline class
 class Finish(Object):
     ANIMATION_DELAY = 4
 
@@ -265,6 +296,7 @@ class Finish(Object):
         super().__init__(x, y, size, size, "finish")
         self.finish_line = load_sprite_sheets("Items", "Finish", size, size)
 
+    # Same stuff, creates a hitbox and lines it up with the image
     def loop(self):
         sprites = self.finish_line["finish"]
         self.image = sprites[0]
@@ -272,6 +304,7 @@ class Finish(Object):
         self.rect = self.scaled_image.get_rect(topleft=(self.rect.x, self.rect.y))
 
 
+#Firetrap class
 class Fire(Object):
     ANIMATION_DELAY = 3
 
@@ -283,12 +316,15 @@ class Fire(Object):
         self.animation_name = "off"
         self.temp_val = time.time()
 
+    # Changes the animation of the trap
     def on(self):
         self.animation_name = "on"
 
+    # Changes the animation of the trap
     def off(self):
         self.animation_name = "off"
 
+    # Handles the logic for the fire trap, turns the trap on/off after 2 seconds in a loop, also handles the animations.
     def loop(self):
         if time.time() > (self.temp_val + 2):
             self.temp_val = time.time()
@@ -309,6 +345,8 @@ class Fire(Object):
             self.animation_count = 0
 
 
+# Loads the background texture and calculates how to split it up to cover the entire screen
+    # name - the name of the backgroundtile that should be selected
 def get_background(name):
     image = pygame.image.load(join("Game Files", "assets", "Backgrounds", name))
     _, _, width, height = image.get_rect()
@@ -322,6 +360,13 @@ def get_background(name):
     return tiles, image
 
 
+# Draws all the objects and stuff on the screen
+    # window - the window that the game is displayed on
+    # background - the background that should be drawn
+    # bg_image - the png tile of the background that should be drawn
+    # player - the player character
+    # objects - the objects like blocks, traps etc
+    # offset_x - dictates how aggressive the camera scroll should be
 def draw(window, background, bg_image, player, objects, offset_x):
     for tile in background:
         window.blit(bg_image, tile)
@@ -336,6 +381,10 @@ def draw(window, background, bg_image, player, objects, offset_x):
     pygame.display.update()
 
 
+# Handles vertical collisions by checking if the rectangles collide 
+    # player - the player character
+    # objects - the objects like blocks, traps etc
+    # dy - the velocity that the player gains/loses
 def handle_vertical_collision(player, objects, dy):
     collided_objects = []
     player_rect = player.rect.copy()
@@ -356,6 +405,10 @@ def handle_vertical_collision(player, objects, dy):
     return collided_objects
 
 
+# Same thing but it checks vertical collisions
+    # player - the player character
+    # objects - the objects like blocks, traps etc
+    # dx - the velocity that the player gains/loses
 def collide(player, objects, dx):
     player.move(dx , 0)
     player.update()
@@ -371,6 +424,9 @@ def collide(player, objects, dx):
     return collided_object
 
 
+# Movement handler, keystrokes and registers collision between players and objects.
+    # player - the player character
+    # objects - the objects like blocks, traps etc
 def handle_move(player, objects):
     keys = pygame.key.get_pressed()
 
@@ -403,6 +459,8 @@ def handle_move(player, objects):
             clear_level(objects)
 
 
+# The "level data" for level 1. Very shitty and horrible structure and absolutely the worst possible way to store level data, also a nightmare to add stuff. Should've used a 2D grid system to store level data.
+    # level_id - the id of the current level
 def load_scene(level_id):
     if level_id == 1:
         background, bg_image = get_background("Brown.png")
@@ -439,16 +497,22 @@ def load_scene(level_id):
         return player, objects, offset_x, background, bg_image, traps
 
 
+# Unloads the level
+    # objects - the objects like blocks, traps etc
 def unload_scene(objects):
     objects.clear()
 
 
+# Marks the level as cleared 
+    # objects - the objects like blocks, traps etc
 def clear_level(objects):
     unload_scene(objects)
     global victory
     victory = True
 
 
+# Draws the victory screen
+    # window - the window that the game is displayed on
 def draw_victory_screen(window):
     window.fill((255, 255, 255)) 
 
@@ -461,10 +525,13 @@ def draw_victory_screen(window):
     window.blit(victory_image, image_rect)
 
 
+# Main function
+    # window - the window that the game is displayed on
 def main(window):
     global victory
     clock = pygame.time.Clock()
-    scroll_area_width = 200 
+    scroll_area_width = 200
+    # Loads up the level 
     player, objects, offset_x, background, bg_image, traps = load_scene(1)
 
     run = True
@@ -475,12 +542,14 @@ def main(window):
             if event.type == pygame.QUIT:
                 run = False
                 break
-
+            
+            # Check for jump inputs
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE or event.key == pygame.K_w:
                     player.jump()
 
 
+        # Enables the loop logic for the objects responsible for animation and hitboxes.
         player.loop(FPS)
         for trap in traps:
             trap.loop()
@@ -494,16 +563,18 @@ def main(window):
         
         draw(window, background, bg_image, player, objects, offset_x)
 
+        # Checks if the player is out of the map or dead and resets the map
         if player.health <= 0 or player.rect.y >= 1000:
             unload_scene(objects)
             player, objects, offset_x, background, bg_image, traps = load_scene(1)
 
-        
+        # Camera scroll
         if ((player.rect.right - offset_x >= WIDTH - scroll_area_width) and player.x_vel > 0) or (
                 (player.rect.left - offset_x <= scroll_area_width) and player.x_vel < 0):
             offset_x += player.x_vel
 
 
+        # When you win the game run the victory screen and close the game
         if victory:
             draw_victory_screen(window)
             pygame.display.update()
