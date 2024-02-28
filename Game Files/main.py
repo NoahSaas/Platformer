@@ -13,6 +13,7 @@ pygame.display.set_caption("Platformer")
 WIDTH, HEIGHT = 800, 500
 FPS = 60
 PLAYER_VEL = 4
+victory = False
 
 window = pygame.display.set_mode((WIDTH, HEIGHT))
 
@@ -73,6 +74,7 @@ class Player(pygame.sprite.Sprite):
         self.hit = False
         self.hit_count = 0
         self.health = 100
+        self.coins = 0
         self.enable_heal = True
 
     def jump(self):
@@ -114,8 +116,8 @@ class Player(pygame.sprite.Sprite):
             self.enable_heal = False
             self.hit_count += 1
             if self.health > 0:
-                self.health -= 0.25
-        if self.hit_count > fps * 1.7:
+                self.health -= 0.5
+        if self.hit_count > fps * 1.5:
             self.hit = False
             self.enable_heal = True
             self.hit_count = 0
@@ -137,7 +139,7 @@ class Player(pygame.sprite.Sprite):
 
     def display_hp(self, win):
         heart_size = 32
-        heart_padding = heart_size / 6
+        heart_padding = heart_size // 6
 
         path1 = join("Game Files", "assets", "Misc", "heart.png")
         path2 = join("Game Files", "assets", "Misc", "empty_heart.png")
@@ -156,13 +158,31 @@ class Player(pygame.sprite.Sprite):
             else:
                 win.blit(empty_heart_image, heart_rect.topleft)
 
-    def collect_coin(self, coin):
-        if coin in items:
-            items.remove(coin)  # Remove the coin from the items list
+    def display_coins(self, win):
+        coin_size = 32
 
-        if coin in objects:
-            objects.remove(coin)
+        path1 = join("Game Files", "assets", "Misc", "coin_HUD.png")
+        coin_image = pygame.image.load(path1).convert_alpha()
+        coin_image = pygame.transform.scale(coin_image, (coin_size, coin_size))
+
+        font = pygame.font.Font('freesansbold.ttf', 32)
+        text_surface = pygame.Surface((100, 50), pygame.SRCALPHA)
+        text_rect = text_surface.get_rect(topright=(WIDTH + 25, 16))
         
+        text = font.render((str(self.coins) + " / 3"), True, (240, 240, 16))
+        text_surface.blit(text, (0, 0))
+
+        coin_rect = pygame.Rect(coin_size, coin_size, coin_size, coin_size)
+        coin_rect.topright = (WIDTH - 86, 16)
+
+
+        win.blit(text_surface, text_rect)
+        win.blit(coin_image, coin_rect.topleft)
+
+
+    def collect_coin(self, coin, objects):
+        objects.remove(coin)
+        self.coins += 1
 
     def update_sprite(self):
         sprite_sheet = "idle"
@@ -178,8 +198,7 @@ class Player(pygame.sprite.Sprite):
 
         sprite_sheet_name = sprite_sheet + "_" + self.direction
         sprites = self.SPRITES[sprite_sheet_name]
-        sprite_index = (self.animation_count //
-                        self.ANIMATION_DELAY) % len(sprites)
+        sprite_index = (self.animation_count // self.ANIMATION_DELAY) % len(sprites)
         self.sprite = sprites[sprite_index]
         self.animation_count += 1
         self.update()
@@ -228,7 +247,7 @@ class Coin(Object):
 
 
     def loop(self):
-        sprites = self.coin["coins"]
+        sprites = self.coin["gold_coin"]
         sprite_index = (self.animation_count // self.ANIMATION_DELAY) % len(sprites)
         self.image = sprites[sprite_index]
         self.scaled_image = pygame.transform.scale_by(self.image, (1, 1))
@@ -237,7 +256,20 @@ class Coin(Object):
 
         if self.animation_count // self.ANIMATION_DELAY > len(sprites):
             self.animation_count = 0
-        
+
+
+class Finish(Object):
+    ANIMATION_DELAY = 4
+
+    def __init__(self, x, y, size):
+        super().__init__(x, y, size, size, "finish")
+        self.finish_line = load_sprite_sheets("Items", "Finish", size, size)
+
+    def loop(self):
+        sprites = self.finish_line["finish"]
+        self.image = sprites[0]
+        self.scaled_image = pygame.transform.scale_by(self.image, (1, 1))
+        self.rect = self.scaled_image.get_rect(topleft=(self.rect.x, self.rect.y))
 
 
 class Fire(Object):
@@ -290,18 +322,16 @@ def get_background(name):
     return tiles, image
 
 
-def draw(window, background, bg_image, player, objects, offset_x, items):
+def draw(window, background, bg_image, player, objects, offset_x):
     for tile in background:
         window.blit(bg_image, tile)
 
     for obj in objects:
         obj.draw(window, offset_x)
 
-    for item in items:
-        item.draw(window, offset_x)
-
     player.draw(window, offset_x)
     player.display_hp(window)
+    player.display_coins(window)
 
     pygame.display.update()
 
@@ -314,10 +344,10 @@ def handle_vertical_collision(player, objects, dy):
 
     for obj in objects:
         if player_rect.colliderect(obj.rect):
-            if dy > 0:
+            if dy > 0 and obj.name != "coin":
                 player.rect.bottom = obj.rect.top
                 player.landed()
-            elif dy < 0:
+            elif dy < 0 and obj.name != "coin":
                 player.rect.top = obj.rect.bottom
                 player.hit_head()
 
@@ -351,11 +381,15 @@ def handle_move(player, objects):
     if keys[pygame.K_a] and not collide_left:
         player.move_left(PLAYER_VEL)
     elif keys[pygame.K_a] and collide_left.name == "coin":
-        player.collect_coin(collide_left)
+        player.collect_coin(collide_left, objects)
+    elif keys[pygame.K_a] and collide_left.name == "finish":
+        clear_level(objects)
     if keys[pygame.K_d] and not collide_right:
         player.move_right(PLAYER_VEL)
     elif keys[pygame.K_d] and collide_right.name == "coin":
-        player.collect_coin(collide_right)
+        player.collect_coin(collide_right, objects)
+    elif keys[pygame.K_d] and collide_right.name == "finish":
+        clear_level(objects)
 
     vertical_collide = handle_vertical_collision(player, objects, player.y_vel)
     to_check = [*vertical_collide]
@@ -364,7 +398,9 @@ def handle_move(player, objects):
         if obj and obj.name == "fire" and obj.animation_name == "on":
             player.make_hit()
         elif obj and obj.name == "coin":
-            player.collect_coin(obj)
+            player.collect_coin(obj, objects)
+        elif obj and obj.name == "finish" and player.coins == 3:
+            clear_level(objects)
 
 
 def load_scene(level_id):
@@ -382,12 +418,14 @@ def load_scene(level_id):
         fire_pit2 = [Fire(block_size * 10 + fire_trap_size * i , HEIGHT - block_size, 16, 32) for i in range(9, 18)]
         fire_pit_floor1 = [Block(block_size * 6 + fire_trap_size * i, HEIGHT - block_size + 64, block_size, "small") for i in range(9, 18)]
         fire_pit_floor2 = [Block(block_size * 10 + fire_trap_size * i, HEIGHT - block_size + 64, block_size, "small") for i in range(9, 18)]
-        
-        del floor[8], floor[8], floor[8], floor[9], floor[9], floor[9], floor[10], floor[10], floor[10]
+        parkour = [Block(block_size * 21, HEIGHT - block_size * 2, block_size, "small"), Block(block_size * 23, HEIGHT - block_size * 3, block_size, "small"), Block(block_size * 27, HEIGHT - block_size * 3, block_size, "small"), Block(block_size * 29, HEIGHT - block_size * 1.5, block_size, "small"), Block(block_size * 33, HEIGHT - block_size * 2, block_size, "small")]
+        finish_line = [Block(i * block_size, HEIGHT - block_size, block_size, "normal") for i in range(35, 44)]
 
-        objects = [*floor, *fire_roof, *fire_roof_pillars1, *fire_roof_pillars2, *fire_pit_floor1, *fire_pit_floor2]
+        del floor[8], floor[8], floor[8], floor[9], floor[9], floor[9], floor[10], floor[10], floor[10], floor[13], floor[13], floor[13], floor[13], floor[13], floor[13], 
+
+        objects = [*floor, *fire_roof, *fire_roof_pillars1, *fire_roof_pillars2, *fire_pit_floor1, *fire_pit_floor2, *parkour, *finish_line]
         traps = [*fire_pit1, *fire_pit2]
-        items = [Coin(0, HEIGHT - 100, 16)]
+        items = [Coin(1565, HEIGHT - (96 + 64), 16), Coin(800, HEIGHT - (96 + 64), 16), Coin(3060, HEIGHT - 175, 16), Finish(3936, HEIGHT - (96 + 96), 64)]
 
         for trap in traps:
             objects.append(trap)
@@ -398,17 +436,36 @@ def load_scene(level_id):
             objects.append(item)
 
         offset_x = 0
-        return player, objects, offset_x, background, bg_image, traps, items
+        return player, objects, offset_x, background, bg_image, traps
 
 
 def unload_scene(objects):
     objects.clear()
 
 
+def clear_level(objects):
+    unload_scene(objects)
+    global victory
+    victory = True
+
+
+def draw_victory_screen(window):
+    window.fill((255, 255, 255)) 
+
+    victory_image_path = join("Game Files", "assets", "Backgrounds", "Victory.png")
+    victory_image = pygame.image.load(victory_image_path)
+    
+    victory_image = pygame.transform.scale(victory_image, (WIDTH, HEIGHT))
+    
+    image_rect = victory_image.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+    window.blit(victory_image, image_rect)
+
+
 def main(window):
+    global victory
     clock = pygame.time.Clock()
-    scroll_area_width = 200    
-    player, objects, offset_x, background, bg_image, traps, items = load_scene(1)
+    scroll_area_width = 200 
+    player, objects, offset_x, background, bg_image, traps = load_scene(1)
 
     run = True
     while run:
@@ -428,11 +485,14 @@ def main(window):
         for trap in traps:
             trap.loop()
 
-        for item in items:
-            item.loop()
+        for item in objects:
+            if item.name == "coin" or item.name == "finish":
+                item.loop()
 
+        
         handle_move(player, objects)
-        draw(window, background, bg_image, player, objects, offset_x, items)
+        
+        draw(window, background, bg_image, player, objects, offset_x)
 
         if player.health <= 0 or player.rect.y >= 1000:
             unload_scene(objects)
@@ -442,6 +502,13 @@ def main(window):
         if ((player.rect.right - offset_x >= WIDTH - scroll_area_width) and player.x_vel > 0) or (
                 (player.rect.left - offset_x <= scroll_area_width) and player.x_vel < 0):
             offset_x += player.x_vel
+
+
+        if victory:
+            draw_victory_screen(window)
+            pygame.display.update()
+            pygame.time.delay(3000)
+            break
 
     pygame.quit()
     quit()
